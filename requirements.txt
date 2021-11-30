@@ -1,0 +1,5 @@
+jupyterlab
+jupyterlab-system-monitor
+jupyterlab-git
+
+gdown
