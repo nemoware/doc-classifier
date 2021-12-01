@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+.idea/
+logs
+*.zip
+*jar
+classifier.xlsx
+/ДД по практикам/
