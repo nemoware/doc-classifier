@@ -18,3 +18,5 @@ torch
 tensorflow-gpu
 datasets
 transformers
+
+streamlit
