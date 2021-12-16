@@ -47,6 +47,7 @@ def get_json_from_parser(doc, filename):
 
     try:
         result = response.json()['documents']
+        st.session_state.response = result
     except Exception as e:
         print(f"\nОшибка в файле {doc}")
         print(f"Ответ от парсера {response.json()}")
@@ -371,7 +372,7 @@ for key in ['result_btn', 'start_btn', 'uploader']:
     if key not in st.session_state:
         st.session_state[key] = False
 
-for key in ['main_text', 'len', 'text_header', 'data_frame']:
+for key in ['main_text', 'len', 'text_header', 'data_frame', 'response']:
     if key not in st.session_state:
         st.session_state[key] = ""
 
@@ -384,14 +385,18 @@ uploader = col1.file_uploader("Выберите файл", ["doc", "docx"])
 container_btn = col1.container()
 container = col2.container()
 container_text = col2.container()
+container_debug = col2.container()
 
 start_btn = container_btn.button("Текст")
 result_btn = container_btn.button("Результат")
 clean_btn = container_btn.button("Очистить")
 turn_on = container_btn.button("Включить")
+debug_btn = container_btn.button("Ответ от парсера")
+debug_clear_btn = container_btn.button("Очистка от ответа парсера")
 
 if clean_btn:
     col1.empty()
+    col2.empty()
     st.session_state.main_text = ""
     st.session_state.data_frame = ""
 
@@ -443,3 +448,9 @@ if st.session_state.main_text != "":
 
     container_text.header("Текст")
     container_text.write(st.session_state.main_text)
+
+if debug_btn:
+    container_debug.write(st.session_state.response)
+
+if debug_clear_btn:
+    container_debug.empty()
