@@ -1,13 +1,25 @@
 import base64
 import json
+import os
+import platform
+import random
 import re
+import signal
+import subprocess
+import sys
+import time
+from json import JSONDecodeError
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 import requests
 import streamlit as st
 import pandas as pd
 
+parser_version = '1.6.4'
+java_subprocess = None
 
-# @st.cache(allow_output_mutation=True)
+
 def get_json_from_parser(doc, filename):
     result = ""
     headers = {
@@ -45,7 +57,7 @@ def get_json_from_parser(doc, filename):
     return result
 
 
-# @st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True)
 def find_let(document, filename, documentType=None):
     key_value = ['о нижеследующем:', 'нижеследующем:', 'о нижеследующем', 'нижеследующем']
     if documentType == 'SUPPLEMENTARY_AGREEMENT':
@@ -103,7 +115,7 @@ def find_let(document, filename, documentType=None):
     return result
 
 
-# @st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True)
 def find_text(document, filename):
     # print(document)
     result = ""
@@ -271,36 +283,163 @@ def find_text(document, filename):
     return result
 
 
+@st.cache(allow_output_mutation=True)
 def get_table_from_excel():
-    df = pd.read_excel(FOLDER_DOWNLOAD_LOCATION + '1.xlsx', sheet_name='Центры. Практики')
-    return None
+    result = []
+    filename = ''
+    for root, dirnames, filenames in os.walk(os.path.abspath(os.curdir), topdown=True):
+        for file in filenames:
+            if 'ЛОД' in file:
+                filename = file
+    df = pd.read_excel(filename, sheet_name='Центры. Практики', header=1)
+    for row in df.values:
+        result.append({
+            'item': row[1],
+            'count': random.random()
+        })
+    return result
+
+
+def start_java_server():
+    print("Запуск сервера")
+    s = [
+        "java",
+        "-jar",
+        f"document-parser-{parser_version}.jar",
+        "--server.port=8083"
+    ]
+    global java_subprocess
+    java_subprocess = subprocess.Popen(s, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                                       stdout=subprocess.PIPE, encoding="utf-8")
+    i = 1
+    while i < 40:
+        time.sleep(0.1)
+        output_log_spring = java_subprocess.stdout.readline()
+        sys.stdout.write("\rПроверка соединения #%i" % i)
+        sys.stdout.flush()
+        i += 1
+        if output_log_spring.find("Started DocumentParserService") != -1:
+            print("\nГотово")
+            java_subprocess.stdout.close()
+            break
+    if i < 40:
+        print("Ошибка при запуске сервера")
+    return i < 40
+
+
+def server_activity_check():
+    headers = {
+        'Content-type': 'application/json',
+        'Accept': 'application/json; text/plain'
+    }
+    try:
+        response = requests.get(
+            "http://localhost:8083/status",
+            headers=headers
+        )
+        response_json = response.json()
+        status = response_json['status']
+        if status == 'ok':
+            print(status)
+            return True
+    except JSONDecodeError:
+        print('Decoding JSON has failed')
+        return False
+    except requests.exceptions.RequestException:
+        print("Ошибка при запросе на сервер")
+        return False
+
+    return False
+
+
+def server_turn_off():
+    global java_subprocess
+    # Смерть java процессу!
+    if platform.system() == 'Windows':
+        subprocess.run("TASKKILL /F /PID {pid} /T".format(pid=java_subprocess.pid))
+    elif platform.system() == 'Linux':
+        os.kill(java_subprocess.pid, signal.SIGTERM)
+    else:
+        print('Не известная платформа, убейте в ручную процесс java')
+
+
+def predicate_result(text):
+    return False
+
+
+for key in ['result_btn', 'start_btn', 'uploader']:
+    if key not in st.session_state:
+        st.session_state[key] = False
+
+for key in ['main_text', 'len', 'text_header', 'data_frame']:
+    if key not in st.session_state:
+        st.session_state[key] = ""
 
 st.set_page_config(layout="wide")
 
-# state = st.session_state[0]
-
-col1, col2 = st.columns(2)
-col2.header("Справочник")
-col1.header("Результат")
-
-# b1, b2 = st.columns(2)
+col1, col2 = st.columns([1, 3])
 
 uploader = col1.file_uploader("Выберите файл", ["doc", "docx"])
 
-placeholder = col1
-start_btn = col1.button("Получить")
-clean_btn = col1.button("Очистить")
+container_btn = col1.container()
+container = col2.container()
+container_text = col2.container()
+
+start_btn = container_btn.button("Текст")
+result_btn = container_btn.button("Результат")
+clean_btn = container_btn.button("Очистить")
+turn_on = container_btn.button("Включить")
+
+if clean_btn:
+    col1.empty()
+    st.session_state.main_text = ""
+    st.session_state.data_frame = ""
 
 if start_btn and uploader:
     from_parser = get_json_from_parser(uploader.getvalue(), uploader.name)
     if from_parser != "" and from_parser is not None:
         text_ = find_text(from_parser[0], uploader.name)
         if text_ != "":
-            placeholder.write(text_['text'])
-        else:
-            placeholder.write("Ошибка при поиске в доке")
-    else:
-        placeholder.write("Ошибка при парсинге дока")
+            st.session_state.text_header = text_['textHeader']
+            st.session_state.main_text = text_['text']
+            st.session_state.len = text_['length']
 
-if clean_btn:
-    placeholder.empty()
+            response = predicate_result(text_['text'])
+        else:
+            col1.write("Ошибка при поиске в доке")
+    else:
+        col1.write("Ошибка при парсинге дока")
+
+if turn_on:
+    if server_activity_check():
+        container_btn.write("Сервер запущен")
+    elif start_java_server():
+        container_btn.write("Сервер запущен")
+    else:
+        container_btn.write("Сервер выключен")
+elif server_activity_check():
+    container_btn.write("Сервер запущен")
+else:
+    container_btn.write("Сервер выключен")
+
+if result_btn:
+    st.session_state.data_frame = get_table_from_excel()
+
+if st.session_state.data_frame != "":
+    container.header("Результат")
+    # width = st.sidebar.slider("plot width", 1, 25, 3)
+    # height = st.sidebar.slider("plot height", 1, 25, 1)
+
+    fig = plt.figure(figsize=(8, 5))
+    sns.barplot(y="item", x="count", data=pd.DataFrame(st.session_state.data_frame))
+    container.pyplot(fig)
+
+if st.session_state.main_text != "":
+    col1.subheader("Заголовок")
+    col1.write(st.session_state.text_header)
+
+    col1.subheader("Кол-во символов в тексте")
+    col1.write(st.session_state.len)
+
+    container_text.header("Текст")
+    container_text.write(st.session_state.main_text)
