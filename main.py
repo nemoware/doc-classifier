@@ -66,6 +66,7 @@ def find_let(document, filename, documentType=None):
         key_value.append('заключили настоящее Дополнительное соглашение к Договору.')
         key_value.append('редакции:')
     result = ""
+
     for i, p in enumerate(document['paragraphs']):
         if any(f.lower() in p['paragraphBody']['text'].lower() or f.lower() in
                p['paragraphHeader']['text'].lower() for f in
@@ -93,15 +94,16 @@ def find_let(document, filename, documentType=None):
             if text == "": continue
 
             text += "".join(
-                str(x['paragraphBody']['text']) if re.match("^ *\d?[.]", str(
-                    x['paragraphBody']['text'])) or re.match("^ *\d?[.]", str(
-                    x['paragraphHeader']['text'])) else '' for x in
-                document['paragraphs'][i:i + 4])
+                str(x['paragraphBody']['text']) for x in document['paragraphs'][i + 1:i + 4])
 
             textHeader = p['paragraphHeader']['text'] + "\n".join(
-                str(x['paragraphHeader']['text']) if re.match("^ *\d?[.] ", str(
-                    x['paragraphBody']['text'])) or re.match("^ *\d?[.] ", str(
-                    x['paragraphHeader']['text'])) else '' for x in document['paragraphs'])
+                str(x['paragraphHeader']['text']) for x in document['paragraphs'][i:i + 4])
+
+            d = i + 4
+            while len(text.split()) < 300 and d < len(document['paragraphs']):
+                text += document['paragraphs'][d]['paragraphBody']['text']
+                d += 1
+
             result = {
                 "name": filename,
                 "documentType": document['documentType'],
@@ -116,22 +118,55 @@ def find_let(document, filename, documentType=None):
     return result
 
 
-@st.cache(allow_output_mutation=True)
+def find_currency_header(paragraph, keys):
+    paragraph['paragraphHeader']['text'] = re.sub(' +', ' ', paragraph['paragraphHeader']['text'])
+    header_text_in_low_reg = paragraph['paragraphHeader']['text'].lower()
+    basic_text_in_low_reg = paragraph['paragraphBody']['text'].lower()
+    if paragraph['paragraphBody']['length'] < 20:
+        return False
+    if len(basic_text_in_low_reg.split()) < 15:
+        return False
+    if re.search("(:)\s*$", basic_text_in_low_reg):
+        return False
+
+    for key in keys:
+        if key.lower() in header_text_in_low_reg:
+            if 'Статья'.lower() in key.lower() and any(
+                    x.lower() in header_text_in_low_reg for x in
+                    ['Термины и определения', 'Термин', 'определения']):
+                return False
+
+            return True
+
+    return False
+
+
+# @st.cache(allow_output_mutation=True)
 def find_text(document, filename):
-    # print(document)
     result = ""
-    if document['documentType'] == "CONTRACT":
-        keys = ['предмет договра', 'предмет договора', 'предмет контракта', 'Общие состояние',
-                'Общие положение', 'Статья 1']
+    if document['documentType'] == "CONTRACT" or document['documentType'] == "AGREEMENT":
+        for ind, par in enumerate(document['paragraphs']):
+            document['paragraphs'][ind]['paragraphBody']['text'] = re.sub('_+', ' ',
+                                                                          par['paragraphBody'][
+                                                                              'text'])
+
+        keys = ['Общие ', 'Общие сведения', 'Общие положение', 'Статья']
+
+        if document['documentType'] == "CONTRACT":
+            sup_keys = ['предмет договра', 'предмет договора', 'Предмет контракта', 'Предмет догов',
+                        'Предмет и общие условия договора']
+            keys = sup_keys + keys
+        if document['documentType'] == "AGREEMENT":
+            keys = keys.insert(0, 'Предмет соглашения')
+
         flag = False
         for i, p in enumerate(document['paragraphs']):
-            if any(z.lower() in re.sub(' +', ' ', p['paragraphHeader']['text'].lower()) for z in
-                   keys) and p['paragraphBody']['length'] > 20:
+            if find_currency_header(paragraph=p, keys=keys):
                 result = {
                     "name": filename,
                     "documentType": document['documentType'],
                     "offset": p['paragraphBody']['offset'],
-                    "text": p['paragraphBody']['text'],
+                    "text": re.sub(' +', ' ', p['paragraphBody']['text']),
                     "length": p['paragraphBody']['length'],
                     "offsetHeader": p['paragraphHeader']['offset'],
                     "textHeader": p['paragraphHeader']['text'],
@@ -141,45 +176,46 @@ def find_text(document, filename):
                 break
         if flag: return result
 
-        for i, p in enumerate(document['paragraphs']):
-            if any(z.lower() in p['paragraphBody']['text'].lower() for z in [
-                'предмет договра', 'предмет договора', 'предмет контракта', 'Общие состояние',
-                'Общие положение', 'Статья 1']) and p['paragraphBody']['length'] > 20:
-                text = ""
+        all_text = "".join(
+            str('\n' + x['paragraphHeader']['text'] + '\n' + x['paragraphBody']['text']) for x in
+            document['paragraphs'])
+        all_text = re.sub(' +', ' ', all_text)
+        text_from = ""
+        # f"(?i)({key}([\w\u0430-\u044f]+|[ ]{1,}|))
+        for key in keys:
+            if key.lower() in all_text.lower():
+                array_of_text = re.split(f"(?i)({key})", all_text)
+                end_text = 0
+                try:
+                    last_symbol = re.search("\s\d[ .]\d?[\s|\u00A0|.\s]*$", array_of_text[0])
+                    if last_symbol:
+                        end_text = int(last_symbol.group().replace(" ", "").split(".")[0])
+                    else:
+                        text_from = " ".join(array_of_text[2].split()[:300])
+                except ValueError as ex:
+                    print(f"cannot converted str to int")
+                    text_from = " ".join(array_of_text[2].split()[:300])
+                    break
 
-                for key in keys:
-                    if key.lower() in re.sub(' +', ' ', p['paragraphBody']['text']).lower():
-                        array_of_text = re.split(f"(?i)({key})",
-                                                 re.sub(' +', ' ', p['paragraphBody']['text']))
-                        end_text = 0
-                        try:
-                            last_symbol = re.search("\s\d[ .]\d?[\s|\u00A0|.]*$", array_of_text[0])
-                            if last_symbol:
-                                end_text = int(last_symbol.group().replace(" ", "").split(".")[0])
-                        except ValueError as ex:
-                            print(f"cannot converted str to int")
-                            text = array_of_text[2]
-                            break
+                if end_text:
+                    end_text += 1
+                    print("\nEnd = ", end_text)
+                    text_from = re.split(f"\s({end_text})[. ]", array_of_text[2])[0]
+                    break
 
-                        if end_text:
-                            end_text += 1
-                            print("\nEnd = ", end_text)
-                            text = re.split(f"\s({end_text})[. ]", array_of_text[2])[0]
-                            break
+        if text_from != "":
+            result = {
+                "name": filename,
+                "documentType": document['documentType'],
+                "offset": document['paragraphs'][0]['paragraphBody']['offset'],
+                "text": text_from,
+                "length": len(text_from),
+                "offsetHeader": p['paragraphHeader']['offset'],
+                "textHeader": p['paragraphHeader']['text'],
+                "lengthHeader": p['paragraphHeader']['length']
+            }
+            return result
 
-                result = {
-                    "name": filename,
-                    "documentType": document['documentType'],
-                    "offset": p['paragraphBody']['offset'],
-                    "text": text,
-                    "length": len(text),
-                    "offsetHeader": p['paragraphHeader']['offset'],
-                    "textHeader": p['paragraphHeader']['text'],
-                    "lengthHeader": p['paragraphHeader']['length']
-                }
-                flag = True
-                break
-        if flag: return result
         obj = find_let(document, filename)
         if obj != "":
             result = obj
@@ -200,10 +236,14 @@ def find_text(document, filename):
             "lengthHeader": sum(i['paragraphHeader']['length'] for i in document['paragraphs'])
         }
     elif document['documentType'] == "SUPPLEMENTARY_AGREEMENT":
+        for ind, par in enumerate(document['paragraphs']):
+            document['paragraphs'][ind]['paragraphBody']['text'] = re.sub('_+', '',
+                                                                          par['paragraphBody'][
+                                                                              'text'])
         flag = False
         for i, p in enumerate(document['paragraphs']):
             if any(f.lower() in p['paragraphHeader']['text'].lower() for f in
-                   ['Статья 1']) and p['paragraphBody'][
+                   ['Статья']) and p['paragraphBody'][
                 'length'] > 20:
                 result = {
                     "name": filename,
@@ -237,48 +277,6 @@ def find_text(document, filename):
                 str(x['paragraphHeader']['text']) for x in document['paragraphs']),
             "lengthHeader": sum(i['paragraphHeader']['length'] for i in document['paragraphs'])
         }
-    elif document['documentType'] == "AGREEMENT":
-        flag = False
-        for i, p in enumerate(document['paragraphs']):
-            if any(f.lower() in re.sub(' +', ' ', p['paragraphHeader']['text'].lower()) for f in
-                   ['Предмет соглашения', 'Общие состоян', 'Общие положение', 'Статья 1']) and \
-                    p['paragraphBody'][
-                        'length'] > 20:
-                result = {
-                    "name": filename,
-                    "documentType": document['documentType'],
-                    "offset": p['paragraphBody']['offset'],
-                    "text": p['paragraphBody']['text'],
-                    "length": p['paragraphBody']['length'],
-                    "offsetHeader": p['paragraphHeader']['offset'],
-                    "textHeader": p['paragraphHeader']['text'],
-                    "lengthHeader": p['paragraphHeader']['length']
-                }
-                flag = True
-                break
-        if flag: return result
-
-        obj = find_let(document, filename)
-        if obj != "":
-            result = obj
-            flag = True
-
-        if flag: return result
-
-        arr_of_paragraphs = document['paragraphs']
-        result = {
-            "fail": True,
-            "name": filename,
-            "documentType": document['documentType'],
-            "offset": arr_of_paragraphs[0]['paragraphBody']['offset'],
-            "text": "\n+++++++++++++\n".join(
-                str(x['paragraphBody']['text']) for x in document['paragraphs']),
-            "length": sum(i['paragraphBody']['length'] for i in arr_of_paragraphs),
-            "offsetHeader": arr_of_paragraphs[0]['paragraphHeader']['offset'],
-            "textHeader": "\n+++++++++++++\n".join(
-                str(x['paragraphHeader']['text']) for x in document['paragraphs']),
-            "lengthHeader": sum(i['paragraphHeader']['length'] for i in document['paragraphs'])
-        }
     if result != "":
         return None
     return result
@@ -298,7 +296,12 @@ def get_table_from_excel():
             'item': row[1],
             'count': random.random()
         })
+    result.sort(key=get_count, reverse=True)
     return result
+
+
+def get_count(employee):
+    return employee.get('count')
 
 
 def start_java_server():
@@ -377,6 +380,11 @@ for key in ['main_text', 'len', 'text_header', 'data_frame', 'response']:
         st.session_state[key] = ""
 
 st.set_page_config(layout="wide")
+# st.markdown('<style>'
+#             # '.css-ns78wr:nth-of-type(1){ visibility: hidden;}'
+#             '.css-ns78wr:first-of-type::after{content: "Загрузить файл";}'
+#             '</style>',
+#             unsafe_allow_html=True)
 
 col1, col2 = st.columns([1, 3])
 
@@ -390,7 +398,7 @@ container_debug = col2.container()
 start_btn = container_btn.button("Текст")
 result_btn = container_btn.button("Результат")
 clean_btn = container_btn.button("Очистить")
-turn_on = container_btn.button("Включить")
+# turn_on = container_btn.button("Включить")
 debug_btn = container_btn.button("Ответ от парсера")
 debug_clear_btn = container_btn.button("Очистка от ответа парсера")
 
@@ -415,14 +423,9 @@ if start_btn and uploader:
     else:
         col1.write("Ошибка при парсинге дока")
 
-if turn_on:
-    if server_activity_check():
-        container_btn.write("Сервер запущен")
-    elif start_java_server():
-        container_btn.write("Сервер запущен")
-    else:
-        container_btn.write("Сервер выключен")
-elif server_activity_check():
+if server_activity_check():
+    container_btn.write("Сервер запущен")
+elif start_java_server():
     container_btn.write("Сервер запущен")
 else:
     container_btn.write("Сервер выключен")
