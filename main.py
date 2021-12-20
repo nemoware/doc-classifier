@@ -1,23 +1,41 @@
+import random
+from json import JSONDecodeError
+
+from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 import base64
 import json
+import matplotlib.pyplot as plt
 import os
+import pandas as pd
 import platform
-import random
 import re
+import requests
+import seaborn as sns
 import signal
+import streamlit as st
 import subprocess
 import sys
+import tensorflow as tf
 import time
-from json import JSONDecodeError
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-import requests
-import streamlit as st
-import pandas as pd
 
 parser_version = '1.6.4'
 java_subprocess = None
+model_checkpoint2 = "sberbank-ai/ruRoberta-large"
+path_to_model = "./doc-classification/"
+
+labels = ['Практика коммерческой логистики',
+          'Практика недропользования и экологии',
+          'Практика поддержки региональных, розничных продаж и клиентского сервиса',
+          'Практика правового сопровождения закупок МТР и услуг общего профиля',
+          'Практика правового сопровождения земельных отношений и сделок с недвижимым имуществом',
+          'Практика правового сопровождения операционной деятельности БРД',
+          'Практика правового сопровождения переработки и инфраструктуры',
+          'Практика правовой поддержки брендов',
+          'Практика правовой поддержки использования и коммерциализации ИС',
+          'Практика правовой поддержки создания и приобретения ИС',
+          'Практика промышленной безопасности и охраны труда',
+          'Практика финансового и конкурентного права',
+          'Практика экспорта, оптовых продаж и сбыта бизнес-единиц (БЕ)']
 
 
 def get_json_from_parser(doc, filename):
@@ -290,6 +308,8 @@ def get_table_from_excel():
         for file in filenames:
             if 'ЛОД' in file:
                 filename = file
+                break
+
     df = pd.read_excel(filename, sheet_name='Центры. Практики', header=1)
     for row in df.values:
         result.append({
@@ -298,10 +318,6 @@ def get_table_from_excel():
         })
     result.sort(key=get_count, reverse=True)
     return result
-
-
-def get_count(employee):
-    return employee.get('count')
 
 
 def start_java_server():
@@ -367,8 +383,47 @@ def server_turn_off():
         print('Не известная платформа, убейте в ручную процесс java')
 
 
+@st.cache(allow_output_mutation=True)
+def get_tokens(text):
+    tokenizer = get_tokenizer()
+    result = tokenizer(text, truncation=True, max_length=512)
+    return result
+
+
+@st.cache(allow_output_mutation=True)
+def get_model():
+    model = TFAutoModelForSequenceClassification.from_pretrained(
+        str(path_to_model), num_labels=len(labels), from_pt=False
+    )
+    return model
+
+
+@st.cache(allow_output_mutation=True)
+def get_tokenizer():
+    tokenizer = AutoTokenizer.from_pretrained(str(model_checkpoint2))
+    return tokenizer
+
+
+@st.cache(allow_output_mutation=True)
 def predicate_result(text):
-    return False
+    tokens = get_tokens(text)
+    model = get_model()
+    predictions = model.predict([tokens['input_ids']])['logits']
+    predictions = tf.nn.softmax(predictions, name=None)[0].numpy()
+    return predictions
+
+
+@st.cache(allow_output_mutation=True)
+def get_dataframe(text):
+    if text == "": return
+    result = []
+    predicate_res = predicate_result(text)
+    for index, item in enumerate(predicate_res):
+        result.append({
+            'item': labels[index],
+            'count': item
+        })
+    return result
 
 
 for key in ['result_btn', 'start_btn', 'uploader']:
@@ -398,7 +453,6 @@ container_debug = col2.container()
 start_btn = container_btn.button("Текст")
 result_btn = container_btn.button("Результат")
 clean_btn = container_btn.button("Очистить")
-# turn_on = container_btn.button("Включить")
 debug_btn = container_btn.button("Ответ от парсера")
 debug_clear_btn = container_btn.button("Очистка от ответа парсера")
 
@@ -416,8 +470,6 @@ if start_btn and uploader:
             st.session_state.text_header = text_['textHeader']
             st.session_state.main_text = text_['text']
             st.session_state.len = text_['length']
-
-            response = predicate_result(text_['text'])
         else:
             col1.write("Ошибка при поиске в доке")
     else:
@@ -431,7 +483,7 @@ else:
     container_btn.write("Сервер выключен")
 
 if result_btn:
-    st.session_state.data_frame = get_table_from_excel()
+    st.session_state.data_frame = get_dataframe(st.session_state.main_text)
 
 if st.session_state.data_frame != "":
     container.header("Результат")
