@@ -1,4 +1,3 @@
-import random
 from json import JSONDecodeError
 
 from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
@@ -300,24 +299,24 @@ def find_text(document, filename):
     return result
 
 
-@st.cache(allow_output_mutation=True)
-def get_table_from_excel():
-    result = []
-    filename = ''
-    for root, dirnames, filenames in os.walk(os.path.abspath(os.curdir), topdown=True):
-        for file in filenames:
-            if 'ЛОД' in file:
-                filename = file
-                break
-
-    df = pd.read_excel(filename, sheet_name='Центры. Практики', header=1)
-    for row in df.values:
-        result.append({
-            'item': row[1],
-            'count': random.random()
-        })
-    result.sort(key=get_count, reverse=True)
-    return result
+# @st.cache(allow_output_mutation=True)
+# def get_table_from_excel():
+#     result = []
+#     filename = ''
+#     for root, dirnames, filenames in os.walk(os.path.abspath(os.curdir), topdown=True):
+#         for file in filenames:
+#             if 'ЛОД' in file:
+#                 filename = file
+#                 break
+#
+#     df = pd.read_excel(filename, sheet_name='Центры. Практики', header=1)
+#     for row in df.values:
+#         result.append({
+#             'item': row[1],
+#             'count': random.random()
+#         })
+#     result.sort(key=get_count, reverse=True)
+#     return result
 
 
 def start_java_server():
@@ -384,13 +383,6 @@ def server_turn_off():
 
 
 @st.cache(allow_output_mutation=True)
-def get_tokens(text):
-    tokenizer = get_tokenizer()
-    result = tokenizer(text, truncation=True, max_length=512)
-    return result
-
-
-@st.cache(allow_output_mutation=True)
 def get_model():
     model = TFAutoModelForSequenceClassification.from_pretrained(
         str(path_to_model), num_labels=len(labels), from_pt=False
@@ -402,6 +394,13 @@ def get_model():
 def get_tokenizer():
     tokenizer = AutoTokenizer.from_pretrained(str(model_checkpoint2))
     return tokenizer
+
+
+@st.cache(allow_output_mutation=True)
+def get_tokens(text):
+    tokenizer = get_tokenizer()
+    result = tokenizer(text, truncation=True, max_length=512)
+    return result
 
 
 @st.cache(allow_output_mutation=True)
