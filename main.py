@@ -54,7 +54,7 @@ def get_json_from_parser(doc, filename):
         return
 
     response = requests.post(
-        "http://localhost:8083/document-parser",
+        "http://192.168.10.36:8889/document-parser",
         data=json.dumps({
             "base64Content": encoded_string,
             "documentFileType": filename.split(".")[-1].upper()
@@ -353,7 +353,7 @@ def server_activity_check():
     }
     try:
         response = requests.get(
-            "http://localhost:8083/status",
+            "http://192.168.10.36:8889/status",
             headers=headers
         )
         response_json = response.json()
@@ -476,8 +476,8 @@ if start_btn and uploader:
 
 if server_activity_check():
     container_btn.write("Сервер запущен")
-elif start_java_server():
-    container_btn.write("Сервер запущен")
+# elif start_java_server():
+#     container_btn.write("Сервер запущен")
 else:
     container_btn.write("Сервер выключен")
 
