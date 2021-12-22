@@ -319,31 +319,31 @@ def find_text(document, filename):
 #     return result
 
 
-def start_java_server():
-    print("Запуск сервера")
-    s = [
-        "java",
-        "-jar",
-        f"document-parser-{parser_version}.jar",
-        "--server.port=8083"
-    ]
-    global java_subprocess
-    java_subprocess = subprocess.Popen(s, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
-                                       stdout=subprocess.PIPE, encoding="utf-8")
-    i = 1
-    while i < 40:
-        time.sleep(0.1)
-        output_log_spring = java_subprocess.stdout.readline()
-        sys.stdout.write("\rПроверка соединения #%i" % i)
-        sys.stdout.flush()
-        i += 1
-        if output_log_spring.find("Started DocumentParserService") != -1:
-            print("\nГотово")
-            java_subprocess.stdout.close()
-            break
-    if i < 40:
-        print("Ошибка при запуске сервера")
-    return i < 40
+# def start_java_server():
+#     print("Запуск сервера")
+#     s = [
+#         "java",
+#         "-jar",
+#         f"document-parser-{parser_version}.jar",
+#         "--server.port=8083"
+#     ]
+#     global java_subprocess
+#     java_subprocess = subprocess.Popen(s, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+#                                        stdout=subprocess.PIPE, encoding="utf-8")
+#     i = 1
+#     while i < 40:
+#         time.sleep(0.1)
+#         output_log_spring = java_subprocess.stdout.readline()
+#         sys.stdout.write("\rПроверка соединения #%i" % i)
+#         sys.stdout.flush()
+#         i += 1
+#         if output_log_spring.find("Started DocumentParserService") != -1:
+#             print("\nГотово")
+#             java_subprocess.stdout.close()
+#             break
+#     if i < 40:
+#         print("Ошибка при запуске сервера")
+#     return i < 40
 
 
 def server_activity_check():
@@ -371,15 +371,15 @@ def server_activity_check():
     return False
 
 
-def server_turn_off():
-    global java_subprocess
-    # Смерть java процессу!
-    if platform.system() == 'Windows':
-        subprocess.run("TASKKILL /F /PID {pid} /T".format(pid=java_subprocess.pid))
-    elif platform.system() == 'Linux':
-        os.kill(java_subprocess.pid, signal.SIGTERM)
-    else:
-        print('Не известная платформа, убейте в ручную процесс java')
+# def server_turn_off():
+#     global java_subprocess
+#     # Смерть java процессу!
+#     if platform.system() == 'Windows':
+#         subprocess.run("TASKKILL /F /PID {pid} /T".format(pid=java_subprocess.pid))
+#     elif platform.system() == 'Linux':
+#         os.kill(java_subprocess.pid, signal.SIGTERM)
+#     else:
+#         print('Не известная платформа, убейте в ручную процесс java')
 
 
 @st.cache(allow_output_mutation=True)
@@ -449,11 +449,11 @@ container = col2.container()
 container_text = col2.container()
 container_debug = col2.container()
 
-start_btn = container_btn.button("Текст")
+# start_btn = container_btn.button("Текст")
 result_btn = container_btn.button("Результат")
 clean_btn = container_btn.button("Очистить")
-debug_btn = container_btn.button("Ответ от парсера")
-debug_clear_btn = container_btn.button("Очистка от ответа парсера")
+# debug_btn = container_btn.button("Ответ от парсера")
+# debug_clear_btn = container_btn.button("Очистка от ответа парсера")
 
 if clean_btn:
     col1.empty()
@@ -461,7 +461,7 @@ if clean_btn:
     st.session_state.main_text = ""
     st.session_state.data_frame = ""
 
-if start_btn and uploader:
+if result_btn and uploader:
     from_parser = get_json_from_parser(uploader.getvalue(), uploader.name)
     if from_parser != "" and from_parser is not None:
         text_ = find_text(from_parser[0], uploader.name)
@@ -469,6 +469,7 @@ if start_btn and uploader:
             st.session_state.text_header = text_['textHeader']
             st.session_state.main_text = text_['text']
             st.session_state.len = text_['length']
+            st.session_state.data_frame = get_dataframe(text_['text'])
         else:
             col1.write("Ошибка при поиске в доке")
     else:
@@ -476,13 +477,11 @@ if start_btn and uploader:
 
 if server_activity_check():
     container_btn.write("Сервер запущен")
-# elif start_java_server():
-#     container_btn.write("Сервер запущен")
 else:
     container_btn.write("Сервер выключен")
 
-if result_btn:
-    st.session_state.data_frame = get_dataframe(st.session_state.main_text)
+# if result_btn:
+#     st.session_state.data_frame = get_dataframe(st.session_state.main_text)
 
 if st.session_state.data_frame != "":
     container.header("Результат")
@@ -503,8 +502,8 @@ if st.session_state.main_text != "":
     container_text.header("Текст")
     container_text.write(st.session_state.main_text)
 
-if debug_btn:
-    container_debug.write(st.session_state.response)
-
-if debug_clear_btn:
-    container_debug.empty()
+# if debug_btn:
+#     container_debug.write(st.session_state.response)
+#
+# if debug_clear_btn:
+#     container_debug.empty()
