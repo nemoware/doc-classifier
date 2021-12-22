@@ -145,7 +145,6 @@ def find_currency_header(paragraph, keys):
         return False
     if re.search("(:)\s*$", basic_text_in_low_reg):
         return False
-
     for key in keys:
         if key.lower() in header_text_in_low_reg:
             if 'Статья'.lower() in key.lower() and any(
@@ -168,17 +167,16 @@ def find_text(document, filename):
                                                                               'text'])
 
         keys = ['Общие ', 'Общие сведения', 'Общие положение', 'Статья']
-
         if document['documentType'] == "CONTRACT":
             sup_keys = ['предмет договра', 'предмет договора', 'Предмет контракта', 'Предмет догов',
                         'Предмет и общие условия договора']
             keys = sup_keys + keys
         if document['documentType'] == "AGREEMENT":
-            keys = keys.insert(0, 'Предмет соглашения')
+            keys.insert(0, 'Предмет соглашения')
 
         flag = False
         for i, p in enumerate(document['paragraphs']):
-            if find_currency_header(paragraph=p, keys=keys):
+            if find_currency_header(p, keys):
                 result = {
                     "name": filename,
                     "documentType": document['documentType'],
