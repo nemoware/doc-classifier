@@ -418,7 +418,7 @@ def get_dataframe(text):
     for index, item in enumerate(predicate_res):
         result.append({
             'item': labels[index],
-            'count': item if item > 0.4 else 0
+            'count': item
         })
     return result
 
