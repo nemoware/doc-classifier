@@ -380,7 +380,7 @@ def server_activity_check():
 #         print('Не известная платформа, убейте в ручную процесс java')
 
 
-@st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True, show_spinner=False)
 def get_model():
     model = TFAutoModelForSequenceClassification.from_pretrained(
         str(path_to_model), num_labels=len(labels), from_pt=False
@@ -388,20 +388,20 @@ def get_model():
     return model
 
 
-@st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True, show_spinner=False)
 def get_tokenizer():
     tokenizer = AutoTokenizer.from_pretrained(str(model_checkpoint2))
     return tokenizer
 
 
-@st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True, show_spinner=False)
 def get_tokens(text):
     tokenizer = get_tokenizer()
     result = tokenizer(text, truncation=True, max_length=512)
     return result
 
 
-@st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True, show_spinner=False)
 def predicate_result(text):
     tokens = get_tokens(text)
     model = get_model()
@@ -410,7 +410,7 @@ def predicate_result(text):
     return predictions
 
 
-@st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True, show_spinner=False)
 def get_dataframe(text):
     if text == "": return
     result = []
@@ -418,7 +418,7 @@ def get_dataframe(text):
     for index, item in enumerate(predicate_res):
         result.append({
             'item': labels[index],
-            'count': item
+            'count': item if item > 0.4 else 0
         })
     return result
 
@@ -460,27 +460,22 @@ if clean_btn:
     st.session_state.data_frame = ""
 
 if result_btn and uploader:
-    from_parser = get_json_from_parser(uploader.getvalue(), uploader.name)
-    if from_parser != "" and from_parser is not None:
-        text_ = find_text(from_parser[0], uploader.name)
-        if text_ != "":
-            st.session_state.text_header = text_['textHeader']
-            st.session_state.main_text = text_['text']
-            st.session_state.len = text_['length']
-            st.session_state.data_frame = get_dataframe(text_['text'])
+    with st.spinner(text="Обработка документа"):
+        from_parser = get_json_from_parser(uploader.getvalue(), uploader.name)
+        if from_parser != "" and from_parser is not None:
+            text_ = find_text(from_parser[0], uploader.name)
+            if text_ != "":
+                st.session_state.text_header = text_['textHeader']
+                st.session_state.main_text = text_['text']
+                st.session_state.len = text_['length']
+                st.session_state.data_frame = get_dataframe(text_['text'])
+            else:
+                col1.write("Ошибка при поиске в доке")
         else:
-            col1.write("Ошибка при поиске в доке")
-    else:
-        col1.write("Ошибка при парсинге дока")
+            col1.write("Ошибка при парсинге дока")
 
 if not server_activity_check():
     container_btn.error("Сервер выключен")
-    # container_btn.write("Сервер запущен")
-# else:
-#     container_btn.error("Сервер выключен")
-
-# if result_btn:
-#     st.session_state.data_frame = get_dataframe(st.session_state.main_text)
 
 if st.session_state.data_frame != "":
     container.header("Результат")
