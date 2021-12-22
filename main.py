@@ -4,18 +4,12 @@ from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 import base64
 import json
 import matplotlib.pyplot as plt
-import os
 import pandas as pd
-import platform
 import re
 import requests
 import seaborn as sns
-import signal
 import streamlit as st
-import subprocess
-import sys
 import tensorflow as tf
-import time
 
 parser_version = '1.6.4'
 java_subprocess = None
@@ -297,53 +291,6 @@ def find_text(document, filename):
     return result
 
 
-# @st.cache(allow_output_mutation=True)
-# def get_table_from_excel():
-#     result = []
-#     filename = ''
-#     for root, dirnames, filenames in os.walk(os.path.abspath(os.curdir), topdown=True):
-#         for file in filenames:
-#             if 'ЛОД' in file:
-#                 filename = file
-#                 break
-#
-#     df = pd.read_excel(filename, sheet_name='Центры. Практики', header=1)
-#     for row in df.values:
-#         result.append({
-#             'item': row[1],
-#             'count': random.random()
-#         })
-#     result.sort(key=get_count, reverse=True)
-#     return result
-
-
-# def start_java_server():
-#     print("Запуск сервера")
-#     s = [
-#         "java",
-#         "-jar",
-#         f"document-parser-{parser_version}.jar",
-#         "--server.port=8083"
-#     ]
-#     global java_subprocess
-#     java_subprocess = subprocess.Popen(s, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
-#                                        stdout=subprocess.PIPE, encoding="utf-8")
-#     i = 1
-#     while i < 40:
-#         time.sleep(0.1)
-#         output_log_spring = java_subprocess.stdout.readline()
-#         sys.stdout.write("\rПроверка соединения #%i" % i)
-#         sys.stdout.flush()
-#         i += 1
-#         if output_log_spring.find("Started DocumentParserService") != -1:
-#             print("\nГотово")
-#             java_subprocess.stdout.close()
-#             break
-#     if i < 40:
-#         print("Ошибка при запуске сервера")
-#     return i < 40
-
-
 def server_activity_check():
     headers = {
         'Content-type': 'application/json',
@@ -367,17 +314,6 @@ def server_activity_check():
         return False
 
     return False
-
-
-# def server_turn_off():
-#     global java_subprocess
-#     # Смерть java процессу!
-#     if platform.system() == 'Windows':
-#         subprocess.run("TASKKILL /F /PID {pid} /T".format(pid=java_subprocess.pid))
-#     elif platform.system() == 'Linux':
-#         os.kill(java_subprocess.pid, signal.SIGTERM)
-#     else:
-#         print('Не известная платформа, убейте в ручную процесс java')
 
 
 @st.cache(allow_output_mutation=True, show_spinner=False)
@@ -427,7 +363,7 @@ for key in ['result_btn', 'start_btn', 'uploader']:
     if key not in st.session_state:
         st.session_state[key] = False
 
-for key in ['main_text', 'len', 'text_header', 'data_frame', 'response']:
+for key in ['main_text', 'len', 'text_header', 'data_frame', 'response', 'document_type']:
     if key not in st.session_state:
         st.session_state[key] = ""
 
@@ -459,23 +395,37 @@ if clean_btn:
     st.session_state.main_text = ""
     st.session_state.data_frame = ""
 
+if not server_activity_check():
+    container_btn.error("Сервер выключен")
+
 if result_btn and uploader:
     with st.spinner(text="Обработка документа"):
         from_parser = get_json_from_parser(uploader.getvalue(), uploader.name)
         if from_parser != "" and from_parser is not None:
             text_ = find_text(from_parser[0], uploader.name)
             if text_ != "":
+                documentType = {
+                    'SUPPLEMENTARY_AGREEMENT': 'Доплнительное соглашение',
+                    'CONTRACT': 'Договор',
+                    'AGREEMENT': 'Соглашение',
+                    'PROTOCOL': 'Протокол',
+                    'ANNEX': 'Устав'
+                }
                 st.session_state.text_header = text_['textHeader']
+                st.session_state.document_type = documentType[text_['documentType']]
                 st.session_state.main_text = text_['text']
                 st.session_state.len = text_['length']
                 st.session_state.data_frame = get_dataframe(text_['text'])
+            elif from_parser[0]['documentType'] == 'PROTOCOL':
+                col1.error("Данный документ является протоколом")
+            elif from_parser[0]['documentType'] == 'ANNEX':
+                col1.error("Данный документ является приложением")
+            elif from_parser[0]['documentType'] == 'CHARTER':
+                col1.error("Данный документ является уставом")
             else:
-                col1.write("Ошибка при поиске в доке")
+                col1.error("Не получилось найти необходимые данные из документа")
         else:
-            col1.write("Ошибка при парсинге дока")
-
-if not server_activity_check():
-    container_btn.error("Сервер выключен")
+            col1.error("Ошибка при парсинге дока")
 
 if st.session_state.data_frame != "":
     container.header("Результат")
@@ -487,6 +437,9 @@ if st.session_state.data_frame != "":
     container.pyplot(fig)
 
 if st.session_state.main_text != "":
+    col1.subheader("Тип документа")
+    col1.write(st.session_state.document_type)
+
     col1.subheader("Заголовок")
     col1.write(st.session_state.text_header)
 
