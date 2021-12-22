@@ -475,10 +475,11 @@ if result_btn and uploader:
     else:
         col1.write("Ошибка при парсинге дока")
 
-if server_activity_check():
-    container_btn.write("Сервер запущен")
-else:
-    container_btn.write("Сервер выключен")
+if not server_activity_check():
+    container_btn.error("Сервер выключен")
+    # container_btn.write("Сервер запущен")
+# else:
+#     container_btn.error("Сервер выключен")
 
 # if result_btn:
 #     st.session_state.data_frame = get_dataframe(st.session_state.main_text)
