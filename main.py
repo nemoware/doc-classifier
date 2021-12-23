@@ -434,6 +434,8 @@ if st.session_state.data_frame != "":
 
     fig = plt.figure(figsize=(8, 5))
     sns.barplot(y="item", x="count", data=pd.DataFrame(st.session_state.data_frame))
+    x1, x2, y1, y2 = plt.axis()
+    plt.axis((0, 1, y1, y2))
     container.pyplot(fig)
 
 if st.session_state.main_text != "":
