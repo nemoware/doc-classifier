@@ -107,7 +107,7 @@ def find_let(document, filename, documentType=None):
             text += "".join(
                 str(x['paragraphBody']['text']) for x in document['paragraphs'][i + 1:i + 4])
 
-            textHeader = p['paragraphHeader']['text'] + "\n".join(
+            textHeader = "\n".join(
                 str(x['paragraphHeader']['text']) for x in document['paragraphs'][i:i + 4])
 
             d = i + 4
@@ -405,7 +405,7 @@ if result_btn and uploader:
             text_ = find_text(from_parser[0], uploader.name)
             if text_ != "":
                 documentType = {
-                    'SUPPLEMENTARY_AGREEMENT': 'Доплнительное соглашение',
+                    'SUPPLEMENTARY_AGREEMENT': 'Дополнительное соглашение',
                     'CONTRACT': 'Договор',
                     'AGREEMENT': 'Соглашение',
                     'PROTOCOL': 'Протокол',
