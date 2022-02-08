@@ -11,7 +11,7 @@ import seaborn as sns
 import streamlit as st
 import tensorflow as tf
 
-parser_version = '1.6.4'
+parser_version = '1.6.7'
 java_subprocess = None
 model_checkpoint2 = "sberbank-ai/ruRoberta-large"
 path_to_model = "./doc-classification/"
@@ -46,25 +46,38 @@ def get_json_from_parser(doc, filename):
         print(f"при конвертации в base64, исключение = {e}")
         print("=" * 200)
         return
+    is_doc = True
+    is_docx = True
+    is_bad_doc = False
+    doc_type = filename.split(".")[-1].upper()
+    while is_doc or is_docx:
+        response = requests.post(
+            "http://192.168.10.36:8889/document-parser",
+            data=json.dumps({
+                "base64Content": encoded_string,
+                "documentFileType": doc_type
+            }),
+            headers=headers
+        )
+        if 'message' in response.json():
+            if doc_type == 'DOC':
+                is_doc = False
+                doc_type = 'DOCX'
+                continue
+            if doc_type == 'DOCX':
+                is_docx = False
+                doc_type = 'DOC'
+                continue
 
-    response = requests.post(
-        "http://192.168.10.36:8889/document-parser",
-        data=json.dumps({
-            "base64Content": encoded_string,
-            "documentFileType": filename.split(".")[-1].upper()
-        }),
-        headers=headers
-    )
-
-    try:
-        result = response.json()['documents']
-        st.session_state.response = result
-    except Exception as e:
-        print(f"\nОшибка в файле {doc}")
-        print(f"Ответ от парсера {response.json()}")
-        print(f"Исключение = {e}")
-        print("=" * 200)
-        return
+        try:
+            result = response.json()['documents']
+            st.session_state.response = result
+        except Exception as e:
+            col1.error(f"\nОшибка в файле: {doc}\nОтвет от парсера: {response.json()}")
+            return
+        finally:
+            is_doc = False
+            is_docx = False
 
     return result
 
@@ -286,7 +299,20 @@ def find_text(document, filename):
                 str(x['paragraphHeader']['text']) for x in document['paragraphs']),
             "lengthHeader": sum(i['paragraphHeader']['length'] for i in document['paragraphs'])
         }
-    if result != "":
+    else:
+        result = {
+            "name": filename,
+            "documentType": document['documentType'],
+            "offset": document['paragraphs'][0]['paragraphBody']['offset'],
+            "text": "\n".join(
+                str(x['paragraphBody']['text']) for x in document['paragraphs']),
+            "length": sum(i['paragraphBody']['length'] for i in document['paragraphs']),
+            "offsetHeader": document['paragraphs'][0]['paragraphHeader']['offset'],
+            "textHeader": "\n".join(
+                str(x['paragraphHeader']['text']) for x in document['paragraphs']),
+            "lengthHeader": sum(i['paragraphHeader']['length'] for i in document['paragraphs'])
+        }
+    if result == "":
         return None
     return result
 
@@ -383,11 +409,11 @@ container = col2.container()
 container_text = col2.container()
 container_debug = col2.container()
 
-# start_btn = container_btn.button("Текст")
+start_btn = container_btn.button("Текст")
 result_btn = container_btn.button("Результат")
 clean_btn = container_btn.button("Очистить")
-# debug_btn = container_btn.button("Ответ от парсера")
-# debug_clear_btn = container_btn.button("Очистка от ответа парсера")
+debug_btn = container_btn.button("Ответ от парсера")
+debug_clear_btn = container_btn.button("Очистка от ответа парсера")
 
 if clean_btn:
     col1.empty()
@@ -409,13 +435,19 @@ if result_btn and uploader:
                     'CONTRACT': 'Договор',
                     'AGREEMENT': 'Соглашение',
                     'PROTOCOL': 'Протокол',
-                    'ANNEX': 'Устав'
+                    'ANNEX': 'Устав',
+                    'UNKNOWN': 'UNKNOWN',
+                    'REGULATION': 'REGULATION',
+                    'ORDER': 'ORDER',
+                    'POWER_OF_ATTORNEY': 'POWER_OF_ATTORNEY',
+                    'WORK_PLAN': 'WORK_PLAN'
                 }
                 st.session_state.text_header = text_['textHeader']
                 st.session_state.document_type = documentType[text_['documentType']]
                 st.session_state.main_text = text_['text']
                 st.session_state.len = text_['length']
-                st.session_state.data_frame = get_dataframe(text_['text'])
+                if text_['documentType'] in ['SUPPLEMENTARY_AGREEMENT', 'CONTRACT', 'AGREEMENT']:
+                    st.session_state.data_frame = get_dataframe(text_['text'])
             elif from_parser[0]['documentType'] == 'PROTOCOL':
                 col1.error("Данный документ является протоколом")
             elif from_parser[0]['documentType'] == 'ANNEX':
@@ -451,8 +483,8 @@ if st.session_state.main_text != "":
     container_text.header("Текст")
     container_text.write(st.session_state.main_text)
 
-# if debug_btn:
-#     container_debug.write(st.session_state.response)
-#
-# if debug_clear_btn:
-#     container_debug.empty()
+if debug_btn:
+    container_debug.write(st.session_state.response)
+
+if debug_clear_btn:
+    container_debug.empty()
