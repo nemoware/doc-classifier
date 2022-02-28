@@ -54,8 +54,10 @@ def get_json_from_parser(doc, filename):
     is_bad_doc = False
     doc_type = filename.split(".")[-1].upper()
     while is_doc or is_docx:
+        # "http://localhost:8890/document-parser"
+        # "http://192.168.10.36:8889/document-parser"
         response = requests.post(
-            "http://192.168.10.36:8889/document-parser",
+            "http://localhost:8889/document-parser",
             data=json.dumps({
                 "base64Content": encoded_string,
                 "documentFileType": doc_type
@@ -91,8 +93,10 @@ def server_activity_check():
         'Accept': 'application/json; text/plain'
     }
     try:
+        # "http://localhost:8889/status"
+        # "http://192.168.10.36:8889/status"
         response = requests.get(
-            "http://192.168.10.36:8889/status",
+            "http://localhost:8889/status",
             headers=headers
         )
         response_json = response.json()
