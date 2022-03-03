@@ -201,7 +201,7 @@ if result_btn and uploader:
         from_parser = get_json_from_parser(uploader.getvalue(), uploader.name)
         if from_parser != "" and from_parser is not None:
             text_, enum = find_text(from_parser[0], uploader.name)
-            if text_ != "":
+            if text_['text'] != "":
                 documentType = {
                     'SUPPLEMENTARY_AGREEMENT': 'Дополнительное соглашение',
                     'CONTRACT': 'Договор',
