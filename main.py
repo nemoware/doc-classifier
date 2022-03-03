@@ -12,7 +12,7 @@ import streamlit as st
 import tensorflow as tf
 from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 
-from search_text import list_of_sheets, find_text, find_currency_header, find_let
+from search_text import find_text
 
 parser_version = '1.6.7'
 java_subprocess = None
@@ -54,10 +54,10 @@ def get_json_from_parser(doc, filename):
     is_bad_doc = False
     doc_type = filename.split(".")[-1].upper()
     while is_doc or is_docx:
-        # "http://localhost:8890/document-parser"
+        # "http://localhost:8889/document-parser"
         # "http://192.168.10.36:8889/document-parser"
         response = requests.post(
-            "http://localhost:8889/document-parser",
+            "http://192.168.10.36:8889/document-parser",
             data=json.dumps({
                 "base64Content": encoded_string,
                 "documentFileType": doc_type
@@ -96,7 +96,7 @@ def server_activity_check():
         # "http://localhost:8889/status"
         # "http://192.168.10.36:8889/status"
         response = requests.get(
-            "http://localhost:8889/status",
+            "http://192.168.10.36:8889/status",
             headers=headers
         )
         response_json = response.json()
