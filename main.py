@@ -208,7 +208,7 @@ if result_btn and uploader:
                     'AGREEMENT': 'Соглашение',
                     'PROTOCOL': 'Протокол',
                     'ANNEX': 'Устав',
-                    'UNKNOWN': 'UNKNOWN',
+                    'UNKNOWN': 'Входящие документы',
                     'REGULATION': 'REGULATION',
                     'ORDER': 'ORDER',
                     'POWER_OF_ATTORNEY': 'POWER_OF_ATTORNEY',
@@ -218,14 +218,14 @@ if result_btn and uploader:
                 st.session_state.document_type = documentType[text_['documentType']]
                 st.session_state.main_text = text_['text']
                 st.session_state.len = text_['length']
-                if text_['documentType'] in ['SUPPLEMENTARY_AGREEMENT', 'CONTRACT', 'AGREEMENT']:
-                    st.session_state.data_frame = get_dataframe(text_['text'])
-            elif from_parser[0]['documentType'] == 'PROTOCOL':
-                col1.error("Данный документ является протоколом")
-            elif from_parser[0]['documentType'] == 'ANNEX':
-                col1.error("Данный документ является приложением")
-            elif from_parser[0]['documentType'] == 'CHARTER':
-                col1.error("Данный документ является уставом")
+                # if text_['documentType'] in ['SUPPLEMENTARY_AGREEMENT', 'CONTRACT', 'AGREEMENT']:
+                st.session_state.data_frame = get_dataframe(text_['text'])
+            # elif from_parser[0]['documentType'] == 'PROTOCOL':
+            #     col1.error("Данный документ является протоколом")
+            # elif from_parser[0]['documentType'] == 'ANNEX':
+            #     col1.error("Данный документ является приложением")
+            # elif from_parser[0]['documentType'] == 'CHARTER':
+            #     col1.error("Данный документ является уставом")
             else:
                 col1.error("Не получилось найти необходимые данные из документа")
         else:
