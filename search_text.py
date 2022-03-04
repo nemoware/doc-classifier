@@ -116,7 +116,8 @@ def find_text(document, filename=None, path=None):
             'о взыскании',
             'ПЕРЕЧЕНЬ НАРУШЕНИЙ',
             'транспортировка', 'транспортировки',
-            'вагон'
+            'вагон',
+            # 'проверки'
         ]
 
         paragraph = find_paragraph_by_keys(document, keys, path, filename)
