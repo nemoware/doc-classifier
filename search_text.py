@@ -1,5 +1,7 @@
 import enum
 import re
+from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
+import tensorflow as tf
 
 all_key = {
     "CONTRACT": [
@@ -18,12 +20,63 @@ all_bad_keys = ['Термины и определения', 'Термин', 'о�
 
 all_good_keys = ['Цели и задачи']
 
+labels = ['Практика коммерческой логистики',
+          'Практика недропользования и экологии',
+          'Практика поддержки региональных, розничных продаж и клиентского сервиса',
+          'Практика правового сопровождения закупок МТР и услуг общего профиля',
+          'Практика правового сопровождения земельных отношений и сделок с недвижимым имуществом',
+          'Практика правового сопровождения операционной деятельности БРД',
+          'Практика правового сопровождения переработки и инфраструктуры',
+          'Практика правовой поддержки брендов',
+          'Практика правовой поддержки использования и коммерциализации ИС',
+          'Практика правовой поддержки создания и приобретения ИС',
+          'Практика промышленной безопасности и охраны труда',
+          'Практика финансового и конкурентного права',
+          'Практика экспорта, оптовых продаж и сбыта бизнес-единиц']
+
+model = None
+tokenizer = None
+path_to_model = "./doc-classification/"
+model_checkpoint2 = "sberbank-ai/ruRoberta-large"
+
 
 class list_of_sheets(enum.Enum):
     GOOD = 0
     BAD = 1
     TEST = 2
     TEST2 = 3
+
+
+def wrapper(document, filename=None, path=None):
+    if document is None:
+        return 'Empty document'
+    if filename is not None and path is not None:
+        return 'Empty path and filename'
+
+    global model
+    global tokenizer
+    json_from_text, sheet = find_text(document, filename, path)
+
+    if json_from_text is None or sheet == list_of_sheets.BAD:
+        return 'Bad result'
+
+    if tokenizer is None and model is None:
+        model = TFAutoModelForSequenceClassification.from_pretrained(
+            str(path_to_model), num_labels=len(labels), from_pt=False
+        )
+        tokenizer = AutoTokenizer.from_pretrained(str(model_checkpoint2))
+
+    result_from_tokenizer = tokenizer(json_from_text['text'], truncation=True, max_length=512)
+    predictions = model.predict([result_from_tokenizer['input_ids']])['logits']
+    predictions = tf.nn.softmax(predictions, name=None)[0].numpy()
+    result = []
+    for index, item in enumerate(predictions):
+        result.append({
+            'id': index,
+            'item': labels[index],
+            'count': item
+        })
+    return sorted(result, key=lambda x: x['count'], reverse=True)
 
 
 def find_text(document, filename=None, path=None):
