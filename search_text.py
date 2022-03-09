@@ -47,36 +47,43 @@ class list_of_sheets(enum.Enum):
     TEST2 = 3
 
 
-def wrapper(document, filename=None, path=None):
-    if document is None:
+def wrapper(documents):
+    """
+    documents: Массив из документов, который лежит в свойстве documents в json ответе от парсера
+
+    Returns: Массив из практик отсортированных по наибольшему проценту
+    """
+    if documents is None or len(documents) == 0:
         return 'Empty document'
-    if filename is not None and path is not None:
-        return 'Empty path and filename'
 
     global model
     global tokenizer
-    json_from_text, sheet = find_text(document, filename, path)
 
-    if json_from_text is None or sheet == list_of_sheets.BAD:
-        return 'Bad result'
+    for document in documents:
+        json_from_text, sheet = find_text(document, path='There\\is\\nothing\\here')
 
-    if tokenizer is None and model is None:
-        model = TFAutoModelForSequenceClassification.from_pretrained(
-            str(path_to_model), num_labels=len(labels), from_pt=False
-        )
-        tokenizer = AutoTokenizer.from_pretrained(str(model_checkpoint2))
+        if json_from_text is None or sheet == list_of_sheets.BAD or json_from_text['text'] == '':
+            continue
 
-    result_from_tokenizer = tokenizer(json_from_text['text'], truncation=True, max_length=512)
-    predictions = model.predict([result_from_tokenizer['input_ids']])['logits']
-    predictions = tf.nn.softmax(predictions, name=None)[0].numpy()
-    result = []
-    for index, item in enumerate(predictions):
-        result.append({
-            'id': index,
-            'item': labels[index],
-            'count': item
-        })
-    return sorted(result, key=lambda x: x['count'], reverse=True)
+        if tokenizer is None and model is None:
+            model = TFAutoModelForSequenceClassification.from_pretrained(
+                str(path_to_model), num_labels=len(labels), from_pt=False
+            )
+            tokenizer = AutoTokenizer.from_pretrained(str(model_checkpoint2))
+
+        result_from_tokenizer = tokenizer(json_from_text['text'], truncation=True, max_length=512)
+        predictions = model.predict([result_from_tokenizer['input_ids']])['logits']
+        predictions = tf.nn.softmax(predictions, name=None)[0].numpy()
+        result = []
+        for index, item in enumerate(predictions):
+            result.append({
+                'id': index,
+                'item': labels[index],
+                'count': item
+            })
+        return sorted(result, key=lambda x: x['count'], reverse=True)
+
+    return 'Bad result'
 
 
 def find_text(document, filename=None, path=None):
