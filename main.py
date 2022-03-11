@@ -1,7 +1,5 @@
 import base64
-import enum
 import json
-import re
 from json import JSONDecodeError
 
 import matplotlib.pyplot as plt
@@ -12,7 +10,7 @@ import streamlit as st
 import tensorflow as tf
 from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 
-from search_text import find_text
+from search_text import find_text, wrapper
 
 parser_version = '1.6.7'
 java_subprocess = None
@@ -207,25 +205,19 @@ if result_btn and uploader:
                     'CONTRACT': 'Договор',
                     'AGREEMENT': 'Соглашение',
                     'PROTOCOL': 'Протокол',
-                    'ANNEX': 'Устав',
+                    'CHARTER': 'Устав',
+                    'ANNEX': 'Приложение',
                     'UNKNOWN': 'Входящие документы',
-                    'REGULATION': 'REGULATION',
-                    'ORDER': 'ORDER',
-                    'POWER_OF_ATTORNEY': 'POWER_OF_ATTORNEY',
-                    'WORK_PLAN': 'WORK_PLAN'
+                    'REGULATION': 'Регламент',
+                    'ORDER': 'Распорядительный документ',
+                    'POWER_OF_ATTORNEY': 'Доверенность',
+                    'WORK_PLAN': 'Рабочий план'
                 }
                 st.session_state.text_header = text_['textHeader']
                 st.session_state.document_type = documentType[text_['documentType']]
                 st.session_state.main_text = text_['text']
                 st.session_state.len = text_['length']
-                # if text_['documentType'] in ['SUPPLEMENTARY_AGREEMENT', 'CONTRACT', 'AGREEMENT']:
                 st.session_state.data_frame = get_dataframe(text_['text'])
-            # elif from_parser[0]['documentType'] == 'PROTOCOL':
-            #     col1.error("Данный документ является протоколом")
-            # elif from_parser[0]['documentType'] == 'ANNEX':
-            #     col1.error("Данный документ является приложением")
-            # elif from_parser[0]['documentType'] == 'CHARTER':
-            #     col1.error("Данный документ является уставом")
             else:
                 col1.error("Не получилось найти необходимые данные из документа")
         else:
