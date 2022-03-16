@@ -1,4 +1,5 @@
 import enum
+import json
 import re
 from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 import tensorflow as tf
@@ -158,14 +159,12 @@ def find_text(document, filename=None, path=None):
             return obj, list_of_sheets.GOOD
 
         return get_bad_results(document, path, filename, list_of_sheets.GOOD)
-
-    elif document['documentType'] == "POWER_OF_ATTORNEY":
-        keys = all_key[document['documentType']]
-        paragraph = find_paragraph_by_keys(document, keys, path, filename)
-        if paragraph is not None:
-            return paragraph, list_of_sheets.TEST2
-        return get_bad_results(document, path, filename, list_of_sheets.TEST)
     else:
+        if document['documentType'] == "POWER_OF_ATTORNEY":
+            paragraph = find_paragraph_by_keys(document, all_key[document['documentType']], path, filename)
+            if paragraph is not None:
+                return paragraph, list_of_sheets.TEST2
+
         keys = [
             'Приказываю', 'Обязываю',
             'СФЕРЕ ПРИРОДОПОЛЬЗОВАНИЯ', 'рыболовству', 'Природоохран',
@@ -175,11 +174,19 @@ def find_text(document, filename=None, path=None):
             'программного обеспечения',
             'о взыскании',
             'ПЕРЕЧЕНЬ НАРУШЕНИЙ',
+            'Перечень услуг',
+            'Недропользование',
+            'План развития',
             'транспортировка', 'транспортировки',
             'вагон',
-            # 'проверки'
+            'проверки',
+            'Авария',
+            'Аукцион',
+            'Выброс',
+            'Разлив',
+            'отход',
         ]
-
+        keys += get_key_from_json()
         paragraph = find_paragraph_by_keys(document, keys, path, filename)
         if paragraph is not None:
             return paragraph, list_of_sheets.TEST2
@@ -232,12 +239,13 @@ def find_currency_header(paragraphs, keys):
     for key in keys:
         for index_of_paragraph, paragraph in enumerate(paragraphs):
             header_text_in_low_reg = paragraph['paragraphHeader']['text'].lower()
+            header_text_in_low_reg = str(header_text_in_low_reg).replace(',', '')
             if not basic_text_validation(paragraph):
                 continue
             for key_from_good_keys in all_good_keys:
                 if key_from_good_keys.lower() in header_text_in_low_reg:
                     return index_of_paragraph, key
-            if key.lower() in header_text_in_low_reg:
+            if re.search(f"(?i)({key})", header_text_in_low_reg):
                 if 'Статья'.lower() in key.lower() and any(x.lower() in header_text_in_low_reg for x in all_bad_keys):
                     continue
                 if any(x.lower() in header_text_in_low_reg for x in all_bad_keys):
@@ -251,13 +259,14 @@ def find_currency_header(paragraphs, keys):
 
 def find_currency_text(paragraph, keys):
     basic_text_in_low_reg = paragraph['paragraphBody']['text'].lower()
+    basic_text_in_low_reg = basic_text_in_low_reg.replace(',', '')
     if not basic_text_validation(paragraph):
         return False, -1
     for key in all_good_keys:
         if key.lower() in basic_text_in_low_reg:
             return paragraph['paragraphBody']['text'], key
     for key in keys:
-        if key.lower() in basic_text_in_low_reg:
+        if re.search(f"(?i)({key})", basic_text_in_low_reg):
             if any(x.lower() in basic_text_in_low_reg for x in all_bad_keys):
                 return False, -1
             # return ''.join(re.split(f"(?i)({key})", paragraph['paragraphBody']['text'])[1:])
@@ -328,10 +337,10 @@ def get_bad_results(document, path, filename, sheet):
                 "name": filename if not path else path.split("\\")[-1],
                 "documentType": document['documentType'],
                 "offset": document['paragraphs'][0]['paragraphBody']['offset'],
-                "text": "\n".join(x['paragraphBody']['text'] for x in document['paragraphs']),
+                "text": remove_bad_symbols("\n".join(x['paragraphBody']['text'] for x in document['paragraphs'])),
                 "length": sum(i['paragraphBody']['length'] for i in document['paragraphs']),
                 "offsetHeader": document['paragraphs'][0]['paragraphHeader']['offset'],
-                "textHeader": "\n".join(x['paragraphHeader']['text'] for x in document['paragraphs']),
+                "textHeader": "\n+++++++++++++\n".join(x['paragraphHeader']['text'] for x in document['paragraphs']),
                 "lengthHeader": sum(i['paragraphHeader']['length'] for i in document['paragraphs']),
                 "key": -1
             }, sheet)
@@ -350,3 +359,20 @@ def get_good_result(document, paragraph, path, filename, sheet, key):
                 "lengthHeader": paragraph['paragraphHeader']['length'],
                 "key": key
             }, sheet)
+
+
+def get_key_from_json():
+    keys = []
+    json_file_with_key = open('keys_from_documents.json')
+    data = json.load(json_file_with_key)
+
+    for item in data:
+        item = str(item).replace('/', '|').replace('\n', '')
+        keys += re.split(r",|;", item)
+
+    for index, item in enumerate(keys):
+        if re.search(r'(\S+\|\S+)', item):
+            match = re.findall(r'(\S+\|\S+)', item)
+            for word in match:
+                keys[index] = keys[index].replace(word, f"({word})")
+    return list(filter(None, keys))
