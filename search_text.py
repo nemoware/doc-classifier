@@ -63,7 +63,7 @@ def get_key_from_json():
                 keys[index] = keys[index].replace(word, f"{word_split[0]}")
                 for sub_word in word_split[1:]:
                     keys.append(key.replace(word, f"{sub_word}"))
-
+    json_file_with_key.close()
     return list(filter(None, keys))
 
 
