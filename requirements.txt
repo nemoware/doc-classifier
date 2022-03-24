@@ -18,5 +18,6 @@ torch
 tensorflow-gpu
 datasets
 transformers
-
+tensorflow
+nltk
 streamlit==1.2.0

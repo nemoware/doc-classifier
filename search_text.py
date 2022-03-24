@@ -3,6 +3,7 @@ import json
 import re
 from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 import tensorflow as tf
+from nltk.tokenize import WhitespaceTokenizer
 
 all_key = {
     "CONTRACT": [
@@ -37,8 +38,8 @@ labels = ['Практика коммерческой логистики',
 
 model = None
 tokenizer = None
-path_to_model = "./doc-classification/"
-model_checkpoint2 = "sberbank-ai/ruRoberta-large"
+path_to_model: str = "./doc-classification/"
+model_checkpoint: str = "sberbank-ai/ruRoberta-large"
 
 
 class list_of_sheets(enum.Enum):
@@ -48,7 +49,7 @@ class list_of_sheets(enum.Enum):
     TEST2 = 3
 
 
-def wrapper(documents):
+def wrapper(documents) -> [] or str:
     """
     documents: Массив из документов, который лежит в свойстве documents в json ответе от парсера
 
@@ -70,7 +71,7 @@ def wrapper(documents):
             model = TFAutoModelForSequenceClassification.from_pretrained(
                 str(path_to_model), num_labels=len(labels), from_pt=False
             )
-            tokenizer = AutoTokenizer.from_pretrained(str(model_checkpoint2))
+            tokenizer = AutoTokenizer.from_pretrained(str(model_checkpoint))
 
         result_from_tokenizer = tokenizer(json_from_text['text'], truncation=True, max_length=512)
         predictions = model.predict([result_from_tokenizer['input_ids']])['logits']
@@ -87,7 +88,7 @@ def wrapper(documents):
     return 'Bad result'
 
 
-def find_text(document, filename=None, path=None):
+def find_text(document, filename: str = None, path: str = None):
     for ind, par in enumerate(document['paragraphs']):
         document['paragraphs'][ind]['paragraphBody']['text'] = re.sub('_+', '', par['paragraphBody']['text'])
         document['paragraphs'][ind]['paragraphHeader']['text'] = re.sub(' +', ' ', par['paragraphHeader']['text'])
@@ -116,10 +117,10 @@ def find_text(document, filename=None, path=None):
                     if last_symbol:
                         end_text = int(last_symbol.group().replace(" ", "").split(".")[0])
                     else:
-                        text_from = " ".join(array_of_text[2].split()[:300])
+                        text_from = " ".join(WhitespaceTokenizer().tokenize(array_of_text[2])[:300])
                 except ValueError as ex:
                     print(f"cannot converted str to int")
-                    text_from = " ".join(array_of_text[2].split()[:300])
+                    text_from = " ".join(WhitespaceTokenizer().tokenize(array_of_text[2])[:300])
                     break
 
                 if end_text:
@@ -163,7 +164,7 @@ def find_text(document, filename=None, path=None):
             if paragraph is not None:
                 return paragraph, list_of_sheets.TEST2
 
-        keys = [
+        keys: [str] = [
             'Приказываю', 'Обязываю',
             'СФЕРЕ ПРИРОДОПОЛЬЗОВАНИЯ', 'рыболовству', 'Природоохран',
             'архитектур',
@@ -196,9 +197,9 @@ def find_text(document, filename=None, path=None):
         return get_bad_results(document, path, filename, list_of_sheets.TEST)
 
 
-def find_paragraph_by_keys(document, keys, path, filename):
+def find_paragraph_by_keys(document, keys: [str], path: str, filename: str):
     index = None
-    currency_text = ''
+    currency_text: str = ''
     index_of_paragraph, found_key = find_currency_header(document['paragraphs'], keys)
 
     if index_of_paragraph >= 0:
@@ -213,7 +214,7 @@ def find_paragraph_by_keys(document, keys, path, filename):
                 break
 
     if index is not None:
-        while currency_text and len(currency_text.split()) < 300 and index != len(document['paragraphs']) - 1:
+        while currency_text and len(WhitespaceTokenizer().tokenize(currency_text)) < 300 and index != len(document['paragraphs']) - 1:
             index += 1
             currency_text += document['paragraphs'][index]['paragraphBody']['text']
 
@@ -231,7 +232,7 @@ def find_paragraph_by_keys(document, keys, path, filename):
     return None
 
 
-def find_currency_header(paragraphs, keys):
+def find_currency_header(paragraphs, keys: [str]) -> (int, int) or (int, str):
     for key in keys:
         for index_of_paragraph, paragraph in enumerate(paragraphs):
             header_text_in_low_reg = paragraph['paragraphHeader']['text'].lower()
@@ -253,7 +254,7 @@ def find_currency_header(paragraphs, keys):
     return -1, -1
 
 
-def find_currency_text(paragraph, keys):
+def find_currency_text(paragraph, keys: [str]):
     basic_text_in_low_reg = paragraph['paragraphBody']['text'].lower()
     basic_text_in_low_reg = basic_text_in_low_reg.replace(',', '')
     if not basic_text_validation(paragraph):
@@ -270,9 +271,9 @@ def find_currency_text(paragraph, keys):
     return False, -1
 
 
-def basic_text_validation(paragraph):
+def basic_text_validation(paragraph) -> bool:
     basic_text_in_low_reg = paragraph['paragraphBody']['text'].lower()
-    return len(basic_text_in_low_reg) >= 150 and len(basic_text_in_low_reg.split()) >= 15
+    return len(basic_text_in_low_reg) >= 150 and len(WhitespaceTokenizer().tokenize(basic_text_in_low_reg)) >= 15
 
 
 def find_let(document, filename=None, document_type=None, path=None):
@@ -287,11 +288,12 @@ def find_let(document, filename=None, document_type=None, path=None):
             if key.lower() in p['paragraphBody']['text'].lower() or key.lower() in p['paragraphHeader']['text'].lower():
                 text = p['paragraphBody']['text']
                 text_header = p['paragraphHeader']['text']
+                list_of_tokenize_words: [str] = WhitespaceTokenizer().tokenize(text)
                 # text = ''.join(re.split(f"(?i)({x})", p['paragraphBody']['text'])[1:])
 
                 if len(document['paragraphs']) > 1:
                     d = i + 1
-                    while len(text.split()) < 300 and d < len(document['paragraphs']):
+                    while len(list_of_tokenize_words) < 300 and d < len(document['paragraphs']):
                         text += document['paragraphs'][d]['paragraphBody']['text']
                         d += 1
                 return {
@@ -307,7 +309,7 @@ def find_let(document, filename=None, document_type=None, path=None):
     return None
 
 
-def remove_signature(text):
+def remove_signature(text: str) -> str:
     for key in ["Подписи Сторон:"]:
         if key.lower() in text.lower():
             split_text = re.split(f"(?i)({key})", text)
@@ -315,14 +317,15 @@ def remove_signature(text):
     return text
 
 
-def remove_bad_symbols(text):
-    bad_symbols = ['_+', '_x000D_', '\x07', 'FORMTEXT', 'FORMDROPDOWN', ]
+def remove_bad_symbols(text: str) -> str:
+    bad_symbols = ['_+', '_x000D_', '\x07', 'FORMTEXT', 'FORMDROPDOWN',
+                   '\u0013', '\u0001', '\u0014', '\u0015', '\u0007']
     text = remove_signature(text)
     text = re.sub(' +', ' ', text)
     for bad_symbol in bad_symbols:
         text = re.sub(bad_symbol, '', text)
-
-    return ' '.join(text.split()[:300])
+    list_of_tokenize_words: [str] = WhitespaceTokenizer().tokenize(text)
+    return ' '.join(list_of_tokenize_words[:300])
 
 
 def get_bad_results(document, path, filename, sheet):
@@ -338,7 +341,7 @@ def get_bad_results(document, path, filename, sheet):
             }, sheet)
 
 
-def get_good_result(document, paragraph, path, filename, sheet, key):
+def get_good_result(document, paragraph, path: str, filename: str, sheet: list_of_sheets, key: str):
     return ({
                 "path": path,
                 "name": filename if not path else path.split("\\")[-1],
@@ -353,7 +356,7 @@ def get_good_result(document, paragraph, path, filename, sheet, key):
 
 def get_key_from_json():
     keys = []
-    json_file_with_key = open('keys_from_documents.json')
+    json_file_with_key = open('keys_from_documents.json', encoding="utf8")
     data = json.load(json_file_with_key)
 
     for item in data:
