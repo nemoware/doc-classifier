@@ -20,4 +20,6 @@ datasets
 transformers
 tensorflow
 nltk
+fuzzywuzzy
+python-Levenshtein
 streamlit==1.2.0
