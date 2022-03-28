@@ -5,7 +5,6 @@ from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 import tensorflow as tf
 from nltk.tokenize import WhitespaceTokenizer
 from fuzzywuzzy import fuzz
-from fuzzywuzzy import process
 
 all_key = {
     "CONTRACT": [
@@ -45,7 +44,7 @@ model_checkpoint: str = "sberbank-ai/ruRoberta-large"
 percentage_of_inaccurate_search: int = 90
 
 
-def get_key_from_json():
+def get_key_from_json() -> list:
     keys = []
     json_file_with_key = open('keys_from_documents.json', encoding="utf8")
     data = json.load(json_file_with_key)
@@ -404,7 +403,10 @@ def get_good_result(document, paragraph,
 
 
 def is_high_percentage(key: str, text: str) -> (bool, int):
+    if len(key) > len(text):
+        return False, 0
     percentage = fuzz.partial_ratio(key.lower(), text.lower())
     if percentage > percentage_of_inaccurate_search:
+        # print(key, percentage, text)
         return True, percentage
     return False, percentage
