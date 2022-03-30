@@ -16,6 +16,7 @@ def get_text(document, filename: str = "", path: str = ""):
 
     return {
                "path": path,
+               "documentType": document["documentType"],
                "name": filename if not path else path.split("\\")[-1],
                "text": text,
                "length": len(text),
@@ -23,9 +24,9 @@ def get_text(document, filename: str = "", path: str = ""):
 
 
 def clear_text(text: str) -> str:
-    print(text[:1000])
-    text = re.sub(r'(([а-яА-Яa-zA-Z\d\s\u0000-\u007F]{1,2}( |\s)){5})', ' ', text)
+    text = re.sub(r'\s', ' ', text)
     text = re.sub(r' +', ' ', text)
+    text = re.sub(r'(([а-яА-Яa-zA-Z\d\s\u0000-\u26FF]{1,2}( |\s)){5})', '', text)
     bad_symbols = ['_+', '_x000D_', '\x07', 'FORMTEXT', 'FORMDROPDOWN',
                    '\u0013', '\u0001', '\u0014', '\u0015', '\u0007']
     for bad_symbol in bad_symbols:
