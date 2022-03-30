@@ -407,6 +407,5 @@ def is_high_percentage(key: str, text: str) -> (bool, int):
         return False, 0
     percentage = fuzz.partial_ratio(key.lower(), text.lower())
     if percentage > percentage_of_inaccurate_search:
-        # print(key, percentage, text)
         return True, percentage
     return False, percentage
