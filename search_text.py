@@ -91,7 +91,7 @@ def wrapper(documents) -> [] or str:
     for document in documents:
         json_from_text, sheet = find_text(document, path='There\\is\\nothing\\here')
 
-        if json_from_text is None or sheet == list_of_sheets.BAD or json_from_text['text'] == '':
+        if json_from_text is None or json_from_text['text'] == '':
             continue
 
         if tokenizer is None and model is None:

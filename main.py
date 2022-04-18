@@ -10,7 +10,8 @@ import streamlit as st
 import tensorflow as tf
 from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 
-from search_text import find_text, wrapper
+from search_text import find_text,wrapper
+# from search_text_v2 import wrapper
 
 parser_version = '1.6.7'
 java_subprocess = None
@@ -159,7 +160,7 @@ for key in ['result_btn', 'start_btn', 'uploader']:
     if key not in st.session_state:
         st.session_state[key] = False
 
-for key in ['main_text', 'len', 'text_header', 'data_frame', 'response', 'document_type']:
+for key in ['main_text', 'len', 'text_header', 'data_frame', 'response', 'document_type', 'document']:
     if key not in st.session_state:
         st.session_state[key] = ""
 
@@ -199,6 +200,8 @@ if result_btn and uploader:
         from_parser = get_json_from_parser(uploader.getvalue(), uploader.name)
         if from_parser != "" and from_parser is not None:
             text_, enum = find_text(from_parser[0], uploader.name)
+            practice = wrapper(from_parser)
+            col1.write(practice)
             if text_['text'] != "":
                 documentType = {
                     'SUPPLEMENTARY_AGREEMENT': 'Дополнительное соглашение',
@@ -213,7 +216,9 @@ if result_btn and uploader:
                     'POWER_OF_ATTORNEY': 'Доверенность',
                     'WORK_PLAN': 'Рабочий план'
                 }
+
                 st.session_state.text_header = text_['textHeader']
+                st.session_state.document = text_
                 st.session_state.document_type = documentType[text_['documentType']]
                 st.session_state.main_text = text_['text']
                 st.session_state.len = text_['length']
@@ -222,6 +227,13 @@ if result_btn and uploader:
                 col1.error("Не получилось найти необходимые данные из документа")
         else:
             col1.error("Ошибка при парсинге дока")
+
+if st.session_state.document != "":
+    document = st.session_state.document
+    container_btn.write({
+        "key": document["key"],
+        "percentage": document["percentage"]
+    })
 
 if st.session_state.data_frame != "":
     container.header("Результат")
