@@ -11,7 +11,7 @@ import tensorflow as tf
 from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 
 from search_text import find_text,wrapper
-# from search_text_v2 import wrapper
+from search_text_v2 import get_text
 
 parser_version = '1.6.7'
 java_subprocess = None
@@ -199,9 +199,9 @@ if result_btn and uploader:
     with st.spinner(text="Обработка документа"):
         from_parser = get_json_from_parser(uploader.getvalue(), uploader.name)
         if from_parser != "" and from_parser is not None:
-            text_, enum = find_text(from_parser[0], uploader.name)
-            practice = wrapper(from_parser)
-            col1.write(practice)
+            text_, enum = get_text(from_parser[0], uploader.name)
+            # practice = wrapper(from_parser)
+            # col1.write(practice)
             if text_['text'] != "":
                 documentType = {
                     'SUPPLEMENTARY_AGREEMENT': 'Дополнительное соглашение',
@@ -217,7 +217,7 @@ if result_btn and uploader:
                     'WORK_PLAN': 'Рабочий план'
                 }
 
-                st.session_state.text_header = text_['textHeader']
+                # st.session_state.text_header = text_['textHeader']
                 st.session_state.document = text_
                 st.session_state.document_type = documentType[text_['documentType']]
                 st.session_state.main_text = text_['text']
@@ -228,12 +228,12 @@ if result_btn and uploader:
         else:
             col1.error("Ошибка при парсинге дока")
 
-if st.session_state.document != "":
-    document = st.session_state.document
-    container_btn.write({
-        "key": document["key"],
-        "percentage": document["percentage"]
-    })
+# if st.session_state.document != "":
+    # document = st.session_state.document
+    # container_btn.write({
+    #     "key": document["key"],
+    #     "percentage": document["percentage"]
+    # })
 
 if st.session_state.data_frame != "":
     container.header("Результат")

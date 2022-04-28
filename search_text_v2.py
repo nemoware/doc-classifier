@@ -74,7 +74,7 @@ def wrapper(documents) -> [] or str:
 def get_text(document, filename: str = "", path: str = ""):
     text: str = ""
     for ind, par in enumerate(document['paragraphs']):
-        if ind < 2:
+        if ind < 7:
             text += ' ' + document['paragraphs'][ind]['paragraphHeader']['text']
             text += ' ' + document['paragraphs'][ind]['paragraphBody']['text']
         text += ' ' + document['paragraphs'][ind]['paragraphBody']['text']
